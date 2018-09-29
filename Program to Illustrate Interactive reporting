@@ -1,0 +1,130 @@
+REPORT ZINTERACTI_REPORT.
+
+Tables:zpurchase,                                          "Tables used for Interactive report
+       zcust.
+
+
+Types:Begin of Ty_purchase,                                "Internal table for Purchase
+      CUSTID type zpurchase-CUSTID,
+      MATID type zpurchase-matid,
+End of Ty_purchase.
+
+Types:Begin of Ty_customer,                                 "Internal table for Customer
+      CUSTID type ZCUST-CUSTID,
+      CUST_NAME type ZCUST-CUST_name,
+      CUST_ADD type ZCUST-CUST_ADD,
+      CUST_CO type ZCUST-CUST_CO,
+      CUST_AGE type ZCUST-CUST_AGE,
+End of Ty_Customer.
+
+Data: It_Purchase type table of TY_PURCHASE,                "workarea and internal table declaration for Purchase table
+      Wa_purchase like line of It_Purchase.
+
+Data: It_Customer type table of ZCUST,                      "workarea and internal table declaration for Customer table
+      Wa_Customer like line of It_Customer.
+
+selection-screen begin of block b1 with frame title text-001.
+
+  parameters: mat_id type zpurchase-matid.                   "Parameter for input field
+
+selection-screen end of block b1.
+
+At selection-screen.                                         "Form to validate input fields
+  perform Input_validation.
+
+
+start-of-selection.
+  Perform Get_material_data.                                 "Form to get the list of material data for entered material id
+  Perform Display_Material_Data.                             "Form to display list of material data for entered material id
+
+TOP-OF-PAGE.
+  PERFORM DISPLAY_HEADER.                                    "Form to display header
+
+END-OF-PAGE.
+  PERFORM DISPLAY_FOOTER.                                    "Form to display footer
+
+
+AT LINE-SELECTION.
+  PERFORM GET_Customer_DATA.                                 "Form to get the Customer detilas for entered material id
+  PERFORM DISPLAY_Customer_DATA.                             "Form to display the Customer detilas for entered material id
+
+TOP-OF-PAGE DURING LINE-SELECTION.                           "Form to display header
+  PERFORM DISPLAY_LIST_HEADER.
+
+
+  form input_validation.
+
+    if mat_id is initial.
+    Message 'please enter material id' type 'E'.             "Form to validate input fields
+  ENDIF.
+
+ endform.
+
+
+Form Get_Material_Data.
+
+    select CUSTID MATID
+       FROM zpurchase                                         "Form to get the list of material data for entered material id
+       INTO TABLE It_Purchase
+       WHERE MATID = MAT_ID.
+
+
+Endform.
+
+
+Form Display_Material_Data.
+
+  if It_Purchase is initial.
+        Message 'Please enter valid Material id' type 'I'.
+  else.
+     write: / 'Customer_ID', 'Material_id'.                   "Form to display the Customer detilas for entered material id
+    Loop at it_purchase into wa_purchase.
+       write: / wa_purchase-Custid, wa_purchase-matid.
+       Hide wa_Purchase.
+    endloop.
+  endif.
+
+
+endform.
+
+FORM DISPLAY_HEADER.
+  WRITE : 'Material Basic Details' COLOR 5.                   "Form to display header
+endform.
+
+FORM DISPLAY_FOOTER .
+  WRITE: 'Report Generated at:', SY-DATUM COLOR 1.            "Form to display footer
+ENDFORM.
+
+
+FORM GET_Customer_DATA.
+
+      SELECT *
+              FROM zcust                                       "Form to get the Customer detilas for entered material id
+              INTO TABLE IT_CUSTOMER
+              WHERE CUSTID = WA_PURCHASE-CUSTID.
+
+endform.
+
+FORM DISPLAY_Customer_DATA.
+
+
+  if it_customer is not initial.
+     write: / 'Customer_ID', 'Customer_Name','Customer_Address','Customer_Contact','Customer_Age'.
+                LOOP AT IT_CUSTOMER INTO WA_CUSTOMER.
+                     WRITE :/ WA_CUSTOMER-CUSTID,
+                              WA_CUSTOMER-CUST_NAME,           "Form to display the Customer detilas for entered material id
+                              WA_CUSTOMER-CUST_ADD,
+                              WA_CUSTOMER-CUST_CO,
+                              WA_CUSTOMER-CUST_AGE .
+                ENDLOOP.
+   else.
+     message: 'no data in the database' type 'I'.
+   endif.
+
+endform.
+
+FORM DISPLAY_LIST_HEADER.
+
+WRITE: 'Customer details:', WA_customer-custid COLOR 6.         "Form to display header
+
+endform.
