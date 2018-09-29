@@ -1,0 +1,199 @@
+REPORT ZALV_REPORT_LAYOUT no standard page heading.
+
+
+Tables: ZVEN,                                                            "Tables used in ALV Report
+        ZBUSINESS.
+
+Types: Begin of Ty_ven,                                                  "Internal table for vendor
+       VENDOR_ID type Zven-VENDOR_ID,
+       End of Ty_ven.
+
+Types: Begin of Ty_Business,                                             "Internal table for Business
+       MATID type Zbusiness-MATID,
+       VENDOR_ID type Zbusiness-VENDOR_ID,
+       End of Ty_Business.
+
+Data: It_vendor type table of Zven,                                      "Internal table and workarea declaration for Vendor table
+      Wa_vendor like line of it_vendor.
+
+Data: It_Business type table of Zbusiness,                                "Internal table and workarea declaration for business table
+      Wa_Business like line of It_Business.
+
+Data:It_ven type table of ty_ven.                                         "Internal table and workarea declaration for Vendor table
+
+DATA : I_FCAT TYPE SLIS_T_FIELDCAT_ALV,                                   "Internal table and workarea declaration for Fieldcatalouge
+       WA_FCAT TYPE SLIS_FIELDCAT_ALV .
+
+DATA : V_POS TYPE I .
+
+DATA : WA_LAYOUT TYPE SLIS_LAYOUT_ALV.                                    ""Internal table and workarea declaration for Layout
+
+DATA : I_EVENTS TYPE SLIS_T_EVENT,                                        "Internal table and workarea declaration for Events
+       WA_EVENTS LIKE LINE OF I_EVENTS .
+
+DATA : I_HEADING TYPE SLIS_T_LISTHEADER,                                  "Internal table and workarea declaration for Commentary write
+       WA_HEADING LIKE LINE OF I_HEADING.
+
+
+selection-screen begin of block B1 with frame title text-001.
+
+  Parameters: Ven_ID type Zven-VENDOR_ID VISIBLE LENGTH 10 Modif ID DLD.    "Parameter for vendor input
+
+Selection-screen end of block B1.
+
+At Selection-Screen on value-request for Ven_ID.
+  perform Field_Valuehelp_For_VendorID.
+
+At selection-screen.
+  perform Validate_Data.
+
+Start-of-selection.
+  PERFORM GET_vendor_Data.
+  Perform Field_Catlouge.
+  Perform Display_Data.
+  Perform Create_Layout.
+  Perform Get_events.
+
+
+Form Field_Valuehelp_For_VendorID.
+
+  Select vendor_id
+    from Zven
+    into table it_ven.
+
+    call function 'F4IF_INT_TABLE_VALUE_REQUEST'
+    EXPORTING
+      retfield    = 'VENDOR_ID'
+      dynpprog    = sy-repid
+      dynpnr      = sy-dynnr
+      dynprofield = 'VENDOR_ID'
+      value_org   = 'S'
+    TABLES
+      value_tab   = it_ven.
+
+EndForm.
+
+Form Validate_Data.
+
+   if Ven_ID is initial.
+     message 'Please Enter Valid Vendor ID using F4 help' type 'E'.
+   endif.
+
+Endform.
+
+FORM GET_vendor_Data.
+
+  Select *
+    from Zven
+    into table It_vendor
+    where vendor_id = ven_id.
+
+   if it_Vendor is not initial.
+     loop at it_vendor into wa_vendor.
+       Select *
+         from ZBUSINESS
+         into table It_Business
+         where vendor_id = wa_vendor-Vendor_id.
+      endloop.
+   Endif.
+
+Endform.
+
+Form Display_Data.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      I_CALLBACK_PROGRAM = SY-REPID
+      IS_LAYOUT          = WA_LAYOUT
+      IT_FIELDCAT        = I_FCAT
+    TABLES
+      T_OUTTAB           = It_Business.
+
+endform.
+
+form Field_Catlouge.
+
+  V_POS = 1 .
+  WA_FCAT-COL_POS = V_POS.
+  WA_FCAT-FIELDNAME = 'MATID' .
+  WA_FCAT-SELTEXT_M = 'Material.ID' .
+  WA_FCAT-HOTSPOT = 'X' .
+  APPEND WA_FCAT TO I_FCAT .
+  CLEAR WA_FCAT .
+
+  V_POS = 2 .
+  WA_FCAT-COL_POS = V_POS.
+  WA_FCAT-FIELDNAME = 'Vendor_ID' .
+  WA_FCAT-SELTEXT_M = 'Vendor.ID' .
+  WA_FCAT-HOTSPOT = 'X' .
+  APPEND WA_FCAT TO I_FCAT .
+  CLEAR WA_FCAT .
+
+Endform.
+
+Form Create_layout.
+
+  WA_LAYOUT-ZEBRA = 'X' .
+  WA_LAYOUT-COLWIDTH_OPTIMIZE = 'X' .
+  WA_LAYOUT-EDIT = 'X' .
+  WA_LAYOUT-NO_VLINE = 'X' .
+  WA_LAYOUT-NO_HLINE = 'X' .
+
+endform.
+
+
+Form Get_Events.
+
+  CALL FUNCTION 'REUSE_ALV_EVENTS_GET'
+   IMPORTING
+     ET_EVENTS             = I_EVENTS .
+
+  READ TABLE I_EVENTS INTO WA_EVENTS WITH KEY NAME = 'TOP_OF_PAGE' .
+  WA_EVENTS-FORM = 'FORM_TOP_OF_PAGE' .
+  MODIFY  I_EVENTS FROM WA_EVENTS INDEX SY-TABIX .
+
+
+  READ TABLE I_EVENTS INTO WA_EVENTS WITH KEY NAME = 'END_OF_LIST' .
+  WA_EVENTS-FORM = 'FORM_END_OF_LIST' .
+  MODIFY  I_EVENTS FROM WA_EVENTS INDEX SY-TABIX.
+
+Endform.
+
+FORM FORM_TOP_OF_PAGE .
+
+  WA_HEADING-TYP = 'H' .
+  WA_HEADING-INFO = 'Vendor Details Report' .
+  APPEND WA_HEADING TO I_HEADING .
+
+  WA_HEADING-TYP = 'S' .
+  WA_HEADING-KEY = 'USERNAME' .
+  WA_HEADING-INFO = SY-UNAME .
+  APPEND WA_HEADING TO I_HEADING .
+
+  WA_HEADING-TYP = 'A' .
+  WA_HEADING-KEY = 'DATE' .
+  WA_HEADING-INFO = SY-DATUM .
+  APPEND WA_HEADING TO I_HEADING .
+
+   CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+    EXPORTING
+      IT_LIST_COMMENTARY       = I_HEADING.
+
+Endform.
+
+FORM FORM_END_OF_LIST .
+
+  REFRESH I_HEADING .
+  CLEAR WA_HEADING .
+
+  WA_HEADING-TYP = 'S' .
+  WA_HEADING-INFO = 'Ford Motor Company' .
+  APPEND WA_HEADING TO I_HEADING .
+
+  CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+   EXPORTING
+     IT_LIST_COMMENTARY       = I_HEADING
+    I_END_OF_LIST_GRID       = 'X'.
+
+
+ENDFORM .
