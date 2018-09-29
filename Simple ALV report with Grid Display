@@ -1,0 +1,91 @@
+REPORT ZALV_REPORT_SIMPLE.
+
+Tables: ZVEN,                                                            "Tables used in ALV Report
+        ZBUSINESS.
+
+Types: Begin of Ty_vendor,                                               "Internal table for vendor
+       VENDOR_ID type Zven-VENDOR_ID,
+       VENDOR_NAME type ZVEN-VENDOR_NAME,
+       VENDOR_ADD type ZVEN-VENDOR_ADD,
+       VENDOR_CO type ZVEN-VENDOR_CO,
+       End of Ty_vendor.
+
+Types: Begin of Ty_Business,                                             "Internal table for Business
+       MATID type Zbusiness-MATID,
+       VENDOR_ID type Zbusiness-VENDOR_ID,
+       End of Ty_Business.
+
+Data: It_vendor type table of Zven,                                      
+      Wa_vendor like line of it_vendor.
+
+Data: It_Business type table of Zbusiness,
+      Wa_Business like line of It_Business.
+
+
+selection-screen begin of block B1 with frame title text-001.
+
+  Parameters: Ven_ID type Zbusiness-VENDOR_ID VISIBLE LENGTH 10 Modif ID DLD.
+
+Selection-screen end of block B1.
+
+At Selection-Screen on value-request for Ven_ID.
+  perform Field_Valuehelp_For_VendorID.
+
+Form Field_Valuehelp_For_VendorID.
+
+  Select * from Zbusiness into table it_business.
+
+    call function 'F4IF_INT_TABLE_VALUE_REQUEST'
+    EXPORTING
+      retfield    = 'VENDOR_ID'
+      dynpprog    = sy-repid
+      dynpnr      = sy-dynnr
+      dynprofield = 'VENDOR_ID'
+      value_org   = 'S'
+    TABLES
+      value_tab   = it_business.
+
+
+EndForm.
+
+At Selection-Screen.
+  if ven_ID is initial.
+    Message 'Please Enter Valid vendor ID' type 'E'.
+  ENDIF.
+
+Start-of-selection.
+  perform Get_Vendor_Details.
+
+End-of-selection.
+  Perform Display_ouput.
+
+Form Get_vendor_Details.
+
+  Select * from Zbusiness
+    into table it_business
+    where vendor_id = Ven_ID.
+
+    IF it_Business is not initial.
+
+      loop at it_business into wa_business.
+        select *
+          from zven
+          into table it_vendor
+          where VENDOR_ID = wa_business-VENDOR_ID.
+      Endloop.
+
+    endif.
+
+Endform.
+
+form Display_ouput.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      I_CALLBACK_PROGRAM = SY-REPID
+      I_STRUCTURE_NAME   = 'ZVEN'
+    TABLES
+      T_OUTTAB           = IT_Vendor.
+
+
+Endform.
