@@ -1,0 +1,151 @@
+REPORT ZCLASSICAL_REPORT.
+
+Tables:zpurchase,                                          "Tables used for CLassical report
+       zcust.
+
+
+Types:Begin of Ty_purchase,                                "Internal table for Purchase
+      CUSTID type zpurchase-CUSTID,
+      MATID type zpurchase-matid,
+End of Ty_purchase.
+
+Types:Begin of Ty_customer,                                 "Internal table for Customer
+      CUSTID type ZCUST-CUSTID,
+      CUST_NAME type ZCUST-CUST_name,
+      CUST_ADD type ZCUST-CUST_ADD,
+      CUST_CO type ZCUST-CUST_CO,
+      CUST_AGE type ZCUST-CUST_AGE,
+End of Ty_Customer.
+
+Data: It_Purchase type table of TY_PURCHASE,                "workarea and internal table declaration for Purchase table
+      Wa_purchase like line of It_Purchase.
+
+Data: It_Customer type table of ZCUST,                      "workarea and internal table declaration for Customer table
+      Wa_Customer like line of It_Customer.
+
+
+selection-screen begin of block b1 with frame title text-001. 
+
+  parameters: mat_id type zpurchase-matid.                   "parameter field to input material id
+
+selection-screen end of block b1.
+
+Selection-screen begin of block b2 with frame title text-002.
+
+  PARAMETERS  P_DLOAD AS CHECKBOX USER-COMMAND UC1.           "parameter field for checkbox
+  PARAMETERS  P_FILE TYPE RLGRAP-FILENAME MODIF ID DLD.       "parameter filed to enter number of rows
+
+selection-screen end of block b2.
+
+
+AT SELECTION-SCREEN OUTPUT.                                   "For dynamic modifications
+  IF P_DLOAD IS INITIAL.
+    LOOP AT SCREEN.
+      CHECK SCREEN-GROUP1 = 'DLD'.
+      SCREEN-INPUT = '0'.
+      MODIFY SCREEN.
+    ENDLOOP.
+  ENDIF.
+
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR mat_id.               "Material id validation
+  PERFORM Matid_value_help.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_FILE.               "file validation
+  PERFORM FILE_VALUE_HELP.
+
+AT SELECTION-SCREEN.
+  PERFORM VALIDATE_INPUTS.                                     "validate input fields
+
+END-OF-SELECTION.
+PERFORM DISPLAY_OUTPUTS.
+  if p_dload = 'X'.                                            
+    PERFORM Download_OUTPUTS.
+  endif.
+
+
+Form Matid_value_help.
+
+  if mat_id is initial.
+    Message 'please enter material id' type 'E'.
+  endif.
+
+endform.
+
+
+FORM FILE_VALUE_HELP.
+
+  CALL FUNCTION 'F4_FILENAME'
+    EXPORTING
+      FIELD_NAME = 'P_FILE'
+    IMPORTING
+      FILE_NAME  = P_FILE.
+
+ENDFORM.                                                          " FILE_VALUE_HELP
+
+
+Form validate_inputs.
+
+  if mat_id is initial.
+    Message 'please enter material id' type 'E'.
+  else.
+    select CUSTID MATID
+       FROM zpurchase
+       INTO TABLE It_Purchase
+       WHERE MATID = MAT_ID.
+  ENDIF.
+
+
+endform.
+
+FORM DISPLAY_OUTPUTS.
+
+if it_purchase is not initial.
+
+    loop at it_purchase into wa_purchase.
+
+      SELECT *
+              FROM zcust
+              INTO TABLE IT_CUSTOMER
+              WHERE CUSTID = WA_PURCHASE-CUSTID.
+
+        if it_customer is not initial.
+
+                LOOP AT IT_CUSTOMER INTO WA_CUSTOMER.
+
+                     WRITE :/ WA_CUSTOMER-CUSTID,
+                              WA_CUSTOMER-CUST_NAME,
+                              WA_CUSTOMER-CUST_ADD,
+                              WA_CUSTOMER-CUST_CO,
+                              WA_CUSTOMER-CUST_AGE .
+                ENDLOOP.
+        else.
+          message: 'no data in the database' type 'I'.
+        endif.
+
+     endloop.
+else.
+  message:'No data in the database for the entered material id' type 'I'.
+endif.
+
+ENDFORM.
+
+
+Form download_outputs.                                               "field value help
+  DATA : LV_FILE TYPE STRING .
+  LV_FILE = P_FILE .
+
+  CALL FUNCTION 'GUI_DOWNLOAD'
+    EXPORTING
+      FILENAME                        = LV_FILE
+     FILETYPE                        = 'ASC'
+     WRITE_FIELD_SEPARATOR           = 'X'
+    TABLES
+      DATA_TAB                        = IT_customer
+           .
+  IF SY-SUBRC = 0.
+    WRITE :/ 'Data downloaded to'.
+    WRITE:P_FILE.
+  ENDIF.
+
+endform.
