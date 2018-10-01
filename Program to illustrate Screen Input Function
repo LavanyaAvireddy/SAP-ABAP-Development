@@ -1,0 +1,19 @@
+parameters:p_Venid type zbusiness-VENDOR_ID modif id IN1.
+
+parameters:P_Num as checkbox user-command UC1.
+
+AT SELECTION-SCREEN OUTPUT.
+
+  LOOP AT SCREEN.
+    IF p_Venid is initial  .                                            " If check box is selected
+      IF SCREEN-GROUP1 = 'IN1' .
+        SCREEN-Input = 0.
+        MODIFY SCREEN.
+      ENDIF.
+    ELSE.
+      IF SCREEN-GROUP1 = 'IN1' .
+        SCREEN-Input = 1.
+        MODIFY SCREEN.
+      ENDIF.
+    ENDIF.
+  ENDLOOP.
