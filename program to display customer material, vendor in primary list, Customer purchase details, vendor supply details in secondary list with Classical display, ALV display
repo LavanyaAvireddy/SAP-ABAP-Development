@@ -1,0 +1,605 @@
+REPORT ZREPORT_ALV_CLASS_INT_BEAUTY.
+
+Tables: Zcust,                                                         "tables used in the Report
+        Zven,
+        ZMaterial,
+        ZBusiness,
+        Zpurchase.
+
+
+Types: begin of Ty_Customer,
+       CUSTID type Zcust-CUSTID,
+       CUST_NAME type Zcust-CUST_NAME,
+       CUST_ADD type Zcust-CUST_ADD,
+       CUST_CO type Zcust-CUST_CO,
+       CUST_AGE type Zcust-CUST_AGE,
+       End of Ty_Customer.
+
+Types: Begin of Ty_Material,
+       MATID type Zmaterial-MATID,
+       MAT_NAME type Zmaterial-MAT_NAME,
+       MAT_DES type Zmaterial-MAT_DES,
+       MAT_PRICE type Zmaterial-MAT_PRICE,
+       MAT_WEIGHT type Zmaterial-MAT_WEIGHT,
+       End of Ty_Material.
+
+TYPES:BEGIN OF TY_VENDOR,
+      VENDOR_ID TYPE Zven-VENDOR_ID,
+      VENDOR_NAME TYPE Zven-VENDOR_NAME,
+      VENDOR_ADD TYPE Zven-VENDOR_ADD,
+      VENDOR_CO TYPE Zven-VENDOR_CO,
+      END OF TY_VENDOR.
+
+Types: begin of Ty_Cust,
+       CUSTID type Zcust-CUSTID,
+       End of Ty_Cust.
+
+Types: Begin of Ty_Mat,
+       MATID type Zmaterial-MATID,
+       End of Ty_Mat.
+
+Types: Begin of Ty_Ven,
+       VENDOR_ID TYPE Zven-VENDOR_ID,
+       End of ty_ven.
+
+Data: It_Cust type standard table of Ty_Cust,
+      wa_cust like line of it_Cust.
+
+Data: it_Mat type standard table of Ty_Mat,
+      wa_Mat like line of It_Mat.
+
+Data: it_Ven type standard table of Ty_ven,
+      Wa_ven like line of It_ven.
+
+DATA: IT_CUSTOMER like standard table of zcust,
+      WA_CUSTOMER LIKE LINE OF IT_CUSTOMER.
+
+DATA: IT_MATERIAL type STANDARD TABLE OF zMATERIAL,
+      WA_MATERIAL LIKE LINE OF IT_MATERIAL.
+
+DATA: IT_VENDOR TYPE STANDARD TABLE OF zVEn,
+      WA_VENDOR LIKE LINE OF IT_VENDOR.
+
+Data: it_purchase type standard table of zpurchase,
+      wa_purchase like line of it_purchase.
+
+Data: it_purchase1 type standard table of zpurchase.
+
+Data:it_business type standard table of zbusiness,
+      wa_business like line of it_business.
+
+DATA : I_FCAT TYPE SLIS_T_FIELDCAT_ALV,                                   "Internal table and workarea declaration for Fieldcatalouge
+       WA_FCAT TYPE SLIS_FIELDCAT_ALV .
+
+DATA : V_POS TYPE I .
+
+DATA : WA_LAYOUT TYPE SLIS_LAYOUT_ALV.
+
+
+selection-screen begin of block b1 with frame title text-001.
+
+  Parameters: C_Cust as checkbox user-command UC1.                     "Checkbox to display Customer master
+  Parameters: C_Mat as checkbox user-command UC1.                      "Checkbox to display Material master
+  Parameters: C_Ven as checkbox user-command UC1.                      "Checkbox to display Vendor master
+
+Selection-screen end of block b1.
+
+
+Selection-screen begin of block b3 with frame title text-002.
+
+  Parameters: P_Custid type zcust-CUSTID Modif Id IN1.
+
+selection-screen end of block b3.
+
+Selection-screen begin of block b4 with frame title text-003.
+
+  Parameters: P_MATID type zmaterial-MATID Modif Id IN2.
+
+selection-screen end of block b4.
+
+Selection-screen begin of block b5 with frame title text-004.
+
+  Parameters: P_Venid type zven-VENDOR_ID Modif Id IN3.
+
+selection-screen end of block b5.
+
+Selection-screen begin of block b6 with frame title text-006.
+
+   parameters: P_Class Radiobutton group RB1.
+   Parameters: P_ALV Radiobutton group RB1.
+
+selection-screen end of block b6.
+
+
+Start-of-selection.
+  Perform Get_Customer_data.
+  Perform Display_Customer_data.
+
+  PERFORM GET_MATERIAL_DATA.
+  PERFORM DISPLAY_MATERIAL_DATA.
+
+  PERFORM GET_VENDOR_DATA.
+  PERFORM DISPLAY_vendor_DATA.
+
+  Perform Display_Customer_Data_ALV.
+  perForm Field_Catlouge_Customer.
+  perform Create_Layout_Customer.
+
+  Perform Display_Material_Data_ALV.
+  Perform Field_Catlouge_Material.
+  Perform Create_Layout_Material.
+
+
+At line-selection.
+  Perform Get_purchase_details.
+  Perform Display_Purchase_Data.
+  perform get_Cust_data.
+  Perform display_CUst_data.
+  perform get_Supplier_Data.
+  Perform Display_Supplier_Data.
+
+
+At selection-screen on value-request for P_MATID.
+  perform Field_Valuehelp_For_MaterialID.
+
+At selection-screen on value-request for P_Custid.
+  perform Field_Valuehelp_For_CustomerID.
+
+At selection-screen on value-request for P_Venid.
+  perform Field_Valuehelp_For_vendorID.
+
+AT selection-screen output.
+  Perform Choose_Info.
+
+Form Choose_info.
+
+  Loop at screen.
+    If C_Cust = 'X'.
+      If screen-Group1 = 'IN1'.
+        SCREEN-ACTIVE = 1.
+        MODIFY SCREEN.
+      ENDIF.
+    ELSE.
+      IF SCREEN-GROUP1 = 'IN1' .
+        SCREEN-ACTIVE = 0.
+        MODIFY SCREEN.
+      ENDIF.
+    ENDIF.
+  Endloop.
+
+  Loop at screen.
+    If C_MAT = 'X'.
+      If screen-Group1 = 'IN2'.
+        SCREEN-ACTIVE = 1.
+        MODIFY SCREEN.
+      ENDIF.
+    ELSE.
+      IF SCREEN-GROUP1 = 'IN2' .
+        SCREEN-ACTIVE = 0.
+        MODIFY SCREEN.
+      ENDIF.
+    ENDIF.
+  Endloop.
+
+  Loop at screen.
+    If C_VEN = 'X'.
+      If screen-Group1 = 'IN3'.
+        SCREEN-ACTIVE = 1.
+        MODIFY SCREEN.
+      ENDIF.
+    ELSE.
+      IF SCREEN-GROUP1 = 'IN3' .
+        SCREEN-ACTIVE = 0.
+        MODIFY SCREEN.
+      ENDIF.
+    ENDIF.
+  Endloop.
+
+Endform.
+
+
+form Field_Valuehelp_For_MaterialID.
+
+    If C_Mat = 'X'.
+        Select matid
+          from Zmaterial
+          into table it_Mat.
+
+           call function 'F4IF_INT_TABLE_VALUE_REQUEST'
+          EXPORTING
+            retfield    = 'MATID'
+            dynpprog    = sy-repid
+            dynpnr      = sy-dynnr
+            dynprofield = 'MATID'
+            value_org   = 'S'
+          TABLES
+            value_tab   = It_Mat.
+    Endif.
+
+Endform.
+
+form Field_Valuehelp_For_CustomerID.
+
+If C_Cust = 'X'.
+  Select Custid
+    from ZCust
+    into table it_Cust.
+
+     call function 'F4IF_INT_TABLE_VALUE_REQUEST'
+    EXPORTING
+      retfield    = 'MATID'
+      dynpprog    = sy-repid
+      dynpnr      = sy-dynnr
+      dynprofield = 'MATID'
+      value_org   = 'S'
+    TABLES
+      value_tab   = It_Cust.
+Endif.
+
+Endform.
+
+form Field_Valuehelp_For_vendorID.
+
+if C_ven = 'X'.
+   Select vendor_id
+    from Zven
+    into table it_ven.
+
+     call function 'F4IF_INT_TABLE_VALUE_REQUEST'
+    EXPORTING
+      retfield    = 'MATID'
+      dynpprog    = sy-repid
+      dynpnr      = sy-dynnr
+      dynprofield = 'MATID'
+      value_org   = 'S'
+    TABLES
+      value_tab   = It_ven.
+Endif.
+
+Endform.
+
+
+
+form Get_Customer_data.
+
+  If c_Cust = 'X' and P_CLASS = 'X' or p_ALV = 'X'.
+    if P_Custid is not initial.
+      select * from Zcust into table It_customer where Custid = P_Custid.
+        if it_Customer is initial.
+          Message: 'Please enter valid Customer Id' type 'I'.
+        Endif.
+     Else.
+       Message: 'Please enter Customer id' Type 'I'.
+    Endif.
+  endif.
+
+ENdform.
+
+form Display_Customer_data.
+
+if c_cust = 'X' AND P_CLASS = 'X' AND IT_CUSTOMER is not initial.
+  Write: 1  'Customer ID' COLOR 5,
+         20 'Customer Name' COLOR 5,
+         40 'Customer Address' COLOR 5,
+         62 'Customer Contact' COLOR 5,
+         85 'Customer Age' COLOR 5.
+
+  LOOP AT IT_CUSTOMER INTO WA_CUSTOMER.
+    WRITE: /1  WA_CUSTOMER-CUSTID,
+            22 WA_CUSTOMER-CUST_NAME,
+            41 WA_CUSTOMER-CUST_ADD,
+            65 WA_CUSTOMER-CUST_CO,
+            86 WA_CUSTOMER-CUST_AGE.
+    Hide: wa_customer.
+  ENDLOOP.
+Endif.
+
+ENdform.
+
+FORM GET_MATERIAL_DATA.
+
+  IF c_MAT = 'X' AND P_CLASS = 'X'.
+    IF P_MATID IS NOT INITIAL.
+      SELECT * FROM ZMATERIAL INTO TABLE IT_MATERIAL WHERE MATID = P_MATID.
+        IF IT_MATERIAL IS INITIAL.
+          Message: 'Please enter valid Material Id' type 'I'.
+        Endif.
+     Else.
+       Message: 'Please enter Material id' Type 'I'.
+    Endif.
+  endif.
+
+ENdFORM.
+
+FORM DISPLAY_MATERIAL_DATA.
+
+if c_MAT = 'X' AND P_CLASS = 'X' AND IT_MATERIAL is not initial.
+  Write: 1  'Material ID' COLOR 5,
+         20 'Material Name' COLOR 5,
+         40 'Material Description' COLOR 5,
+         68 'Material price' COLOR 5,
+         87 'Material Weight' COLOR 5.
+
+  LOOP AT IT_Material INTO WA_Material.
+    WRITE: /1  WA_Material-MATID,
+            24 WA_Material-MAT_NAME,
+            40 WA_Material-MAT_DES,
+            70 WA_Material-MAT_PRICE,
+            89 WA_Material-MAT_WEIGHT.
+    Hide: wa_material.
+  ENDLOOP.
+Endif.
+
+ENDFORM.
+
+FORM GET_VENDOR_DATA.
+
+  IF c_VEN = 'X' AND P_CLASS = 'X'.
+    IF P_VENID IS NOT INITIAL.
+      SELECT * FROM ZVEN INTO TABLE IT_VENDOR WHERE VENDOR_ID = P_VENID.
+        IF IT_vendor IS INITIAL.
+          Message: 'Please enter valid vendor Id' type 'I'.
+        Endif.
+     Else.
+       Message: 'Please enter Vendor id' Type 'I'.
+    Endif.
+  endif.
+
+ENDFORM.
+
+
+FORM DISPLAY_vendor_DATA.
+
+  if c_ven = 'X' AND P_CLASS = 'X' AND IT_vendor is not initial.
+  Write: 1  'Vendor ID' COLOR 5,
+         20 'Vendor Name' COLOR 5,
+         40 'Vendor Address' COLOR 5,
+         68 'Vendor Contact' COLOR 5.
+
+  LOOP AT IT_vendor INTO WA_vendor.
+    WRITE: /1  WA_vendor-VENDOR_ID,
+            21 WA_vendor-VENDOR_NAME,
+            38 WA_vendor-VENDOR_ADD,
+            70 WA_vendor-VENDOR_CO.
+    hide:wa_vendor.
+  ENDLOOP.
+Endif.
+
+ENDFORM.
+
+form Get_purchase_details.
+
+Select * from Zpurchase
+  into table it_purchase
+  where custid = Wa_Customer-custid.
+
+Endform.
+
+
+form Display_Purchase_Data.
+
+if c_Cust = 'X'.
+    IF it_purchase is not initial.
+       Write: 1 'Customer id' color 6,
+             20 'Material Id' color 6,
+             38 'Amount Paid' color 6.
+
+       Loop at it_purchase into wa_purchase.
+         WRITE: /1 wa_purchase-CUSTID,
+                20 wa_purchase-Matid,
+                38 wa_purchase-AMount_paid.
+       endloop.
+    Endif.
+Endif.
+
+Endform.
+
+form get_Cust_data.
+
+  Select * from Zpurchase
+  into table it_purchase1
+  where matid = Wa_material-matid.
+
+
+
+endform.
+
+form display_CUst_data.
+
+  IF it_purchase1 is not initial.
+   Write: 1 'Customer id' color 6,
+         20 'Material Id' color 6,
+         38 'Amount Paid' color 6.
+
+   Loop at it_purchase1 into wa_purchase.
+     WRITE: /1 wa_purchase-CUSTID,
+            20 wa_purchase-Matid,
+            38 wa_purchase-AMount_paid.
+   endloop.
+Endif.
+
+endform.
+
+form get_Supplier_Data.
+
+  select * from zbusiness
+    into table it_business
+    where vendor_id = wa_vendor-vendor_id.
+
+endform.
+
+
+form Display_Supplier_Data.
+
+IF it_business is not initial.
+   Write: 1 'vendor id' color 6,
+         20 'Material Id' color 6.
+
+   Loop at it_business into wa_business.
+     WRITE: /1 wa_business-vendor_id,
+            20 wa_business-Matid.
+   endloop.
+Endif.
+
+endform.
+
+form Display_Customer_Data_ALV.
+
+if C_Cust = 'X' and P_ALV = 'X'.
+  If it_Customer is not initial.
+    if P_AlV = 'X'.
+      CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+          EXPORTING
+              I_CALLBACK_PROGRAM = SY-REPID
+              IS_LAYOUT          = WA_LAYOUT
+              IT_FIELDCAT        = I_FCAT
+          TABLES
+              T_OUTTAB           = It_Customer.
+      Endif.
+  Else.
+         Message: 'Please enter valid Customer ID' type 'I'.
+   Endif.
+Endif.
+
+
+Endform.
+
+Form Field_Catlouge_Customer.
+
+if C_Cust = 'X'.
+  V_POS = 1 .
+  WA_FCAT-COL_POS = V_POS.
+  WA_FCAT-FIELDNAME = 'CUSTID' .
+  WA_FCAT-SELTEXT_M = 'Customer.ID' .
+  WA_FCAT-HOTSPOT = 'X' .
+  APPEND WA_FCAT TO I_FCAT .
+  CLEAR WA_FCAT .
+
+  V_POS = 2 .
+  WA_FCAT-COL_POS = V_POS.
+  WA_FCAT-FIELDNAME = 'CUST_NAME' .
+  WA_FCAT-SELTEXT_M = 'Customer Name' .
+  WA_FCAT-HOTSPOT = 'X' .
+  APPEND WA_FCAT TO I_FCAT .
+  CLEAR WA_FCAT .
+
+  V_POS = 3.
+  WA_FCAT-COL_POS = V_POS.
+  WA_FCAT-FIELDNAME = 'CUST_ADD' .
+  WA_FCAT-SELTEXT_M = 'Customer Address' .
+  WA_FCAT-HOTSPOT = 'X' .
+  APPEND WA_FCAT TO I_FCAT .
+  CLEAR WA_FCAT .
+
+  V_POS = 4.
+  WA_FCAT-COL_POS = V_POS.
+  WA_FCAT-FIELDNAME = 'CUST_CO' .
+  WA_FCAT-SELTEXT_M = 'Customer Contact' .
+  WA_FCAT-HOTSPOT = 'X' .
+  APPEND WA_FCAT TO I_FCAT .
+  CLEAR WA_FCAT .
+
+  V_POS = 5.
+  WA_FCAT-COL_POS = V_POS.
+  WA_FCAT-FIELDNAME = 'CUST_AGE' .
+  WA_FCAT-SELTEXT_M = 'Customer Age' .
+  WA_FCAT-HOTSPOT = 'X' .
+  APPEND WA_FCAT TO I_FCAT .
+  CLEAR WA_FCAT .
+Endif.
+
+
+Endform.
+
+form Create_Layout_Customer.
+
+if c_Cust = 'X'.
+  WA_LAYOUT-ZEBRA = 'X' .
+  WA_LAYOUT-COLWIDTH_OPTIMIZE = 'X' .
+  WA_LAYOUT-EDIT = 'X' .
+  WA_LAYOUT-NO_VLINE = 'X' .
+  WA_LAYOUT-NO_HLINE = 'X' .
+Endif.
+
+Endform.
+
+form Display_Material_Data_ALV.
+
+  if C_Mat = 'X'.
+  If It_Material is not Initial.
+     if P_ALV = 'X'.
+          CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+          EXPORTING
+              I_CALLBACK_PROGRAM = SY-REPID
+              IS_LAYOUT          = WA_LAYOUT
+              IT_FIELDCAT        = I_FCAT
+          TABLES
+              T_OUTTAB           = It_Material.
+      Endif.
+  Else.
+         Message: 'Please enter valid Material ID' type 'I'.
+   Endif.
+Endif.
+
+
+ENdform.
+
+
+form Field_Catlouge_Material.
+
+  if c_Mat = 'X'.
+  V_POS = 1 .
+  WA_FCAT-COL_POS = V_POS.
+  WA_FCAT-FIELDNAME = 'MATID' .
+  WA_FCAT-SELTEXT_M = 'Material.ID' .
+  WA_FCAT-HOTSPOT = 'X' .
+  APPEND WA_FCAT TO I_FCAT .
+  CLEAR WA_FCAT .
+
+  V_POS = 2 .
+  WA_FCAT-COL_POS = V_POS.
+  WA_FCAT-FIELDNAME = 'MAT_NAME' .
+  WA_FCAT-SELTEXT_M = 'Material Name' .
+  WA_FCAT-HOTSPOT = 'X' .
+  APPEND WA_FCAT TO I_FCAT .
+  CLEAR WA_FCAT .
+
+  V_POS = 3.
+  WA_FCAT-COL_POS = V_POS.
+  WA_FCAT-FIELDNAME = 'MAT_DES' .
+  WA_FCAT-SELTEXT_M = 'Material Des' .
+  WA_FCAT-HOTSPOT = 'X' .
+  APPEND WA_FCAT TO I_FCAT .
+  CLEAR WA_FCAT .
+
+  V_POS = 4.
+  WA_FCAT-COL_POS = V_POS.
+  WA_FCAT-FIELDNAME = 'MAT_PRICE' .
+  WA_FCAT-SELTEXT_M = 'Material Price' .
+  WA_FCAT-HOTSPOT = 'X' .
+  APPEND WA_FCAT TO I_FCAT .
+  CLEAR WA_FCAT .
+
+  V_POS = 5.
+  WA_FCAT-COL_POS = V_POS.
+  WA_FCAT-FIELDNAME = 'MAT_WEIGHT' .
+  WA_FCAT-SELTEXT_M = 'Material Weight' .
+  WA_FCAT-HOTSPOT = 'X' .
+  APPEND WA_FCAT TO I_FCAT .
+  CLEAR WA_FCAT .
+Endif.
+
+Endform.
+
+
+form Create_Layout_Material.
+
+  if C_Mat = 'X'.
+  WA_LAYOUT-ZEBRA = 'X' .
+  WA_LAYOUT-COLWIDTH_OPTIMIZE = 'X' .
+  WA_LAYOUT-EDIT = 'X' .
+  WA_LAYOUT-NO_VLINE = 'X' .
+  WA_LAYOUT-NO_HLINE = 'X' .
+Endif.
+
+Endform.
