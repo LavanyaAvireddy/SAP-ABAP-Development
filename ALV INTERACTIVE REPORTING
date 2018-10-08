@@ -1,0 +1,271 @@
+REPORT zalv_interactive.
+
+TABLES: zcust,
+        zmaterial,
+        zven,
+        zpurchase,
+        zbusiness.
+
+TYPE-POOLS slis.
+
+TYPES: BEGIN OF ty_customer,
+         custid    TYPE zcust-custid,
+         cust_name TYPE zcust-cust_name,
+         cust_add  TYPE zcust-cust_add,
+         cust_co   TYPE zcust-cust_co,
+         cust_age  TYPE zcust-cust_age,
+       END OF ty_customer.
+
+DATA: it_customer TYPE TABLE OF zcust,
+      wa_customer LIKE LINE OF it_customer.
+
+DATA : it_fcat TYPE slis_t_fieldcat_alv .                            "field catalog table
+DATA : wa_fcat LIKE LINE OF it_fcat .                                "field catalog work area
+
+DATA : wa_layout TYPE slis_layout_alv.
+
+DATA: it_purchase TYPE TABLE OF zpurchase,
+      wa_purchase LIKE LINE OF it_purchase.
+
+DATA: v_repid LIKE sy-repid .
+
+DATA: it_listheader TYPE slis_t_listheader.
+
+DATA: v_events TYPE slis_t_event,
+      wa_event TYPE slis_alv_event.
+
+DATA:  i_title_ekko TYPE lvc_title VALUE 'FIRST LIST DISPLAYED'.
+DATA:  i_title_ekpo TYPE lvc_title VALUE 'SECONDRY LIST DISPLAYED'.
+
+
+PARAMETERS: p_custid TYPE zcust-custid.
+PARAMETERS: p_list RADIOBUTTON GROUP rb1,
+            p_grid RADIOBUTTON GROUP rb1.
+
+
+INITIALIZATION.
+  v_repid = sy-repid.
+  PERFORM event_call.
+  PERFORM populate_event.
+
+START-OF-SELECTION.
+  PERFORM get_customer_data.
+  PERFORM field_catalouge.
+
+END-OF-SELECTION.
+  PERFORM display_customer_data_grid.
+  PERFORM display_customer_data_list.
+
+FORM event_call.
+
+  CALL FUNCTION 'REUSE_ALV_EVENTS_GET'
+    EXPORTING
+      i_list_type = 0
+    IMPORTING
+      et_events   = v_events.
+
+ENDFORM.                    "EVENT_CALL
+
+FORM populate_event.
+
+  READ TABLE v_events INTO wa_event WITH KEY name = 'TOP_OF_PAGE'.
+  IF sy-subrc EQ 0.
+    wa_event-form = 'TOP_OF_PAGE'.
+    MODIFY v_events FROM wa_event TRANSPORTING form
+        WHERE name = wa_event-form.
+  ENDIF.
+
+  READ TABLE v_events INTO wa_event WITH KEY name = 'USER_COMMAND'.
+  IF sy-subrc EQ 0.
+    wa_event-form = 'USER_COMMAND'.
+    MODIFY v_events FROM wa_event TRANSPORTING form
+        WHERE name = wa_event-name.
+  ENDIF.
+
+ENDFORM.                    "POPULATE_EVENT
+
+FORM get_customer_data.
+
+  SELECT *
+    FROM zcust
+    INTO TABLE it_customer
+    WHERE custid  = p_custid.
+
+ENDFORM.
+
+FORM field_catalouge.
+
+  wa_fcat-col_pos = '1' .
+  wa_fcat-fieldname = 'custid' .
+  wa_fcat-tabname = 'it_customer' .
+  wa_fcat-seltext_m = 'Customer ID' .
+  wa_fcat-key = 'X' .
+  APPEND wa_fcat TO it_fcat .
+  CLEAR wa_fcat .
+
+  wa_fcat-col_pos = '2' .
+  wa_fcat-fieldname = 'CUST_NAME' .
+  wa_fcat-tabname = 'it_customer' .
+  wa_fcat-seltext_m = 'Customer Name' .
+  APPEND wa_fcat TO it_fcat .
+  CLEAR wa_fcat .
+
+  wa_fcat-col_pos = '3' .
+  wa_fcat-fieldname = 'CUST_ADD' .
+  wa_fcat-tabname = 'it_customer' .
+  wa_fcat-seltext_m = 'Customer Address' .
+  APPEND wa_fcat TO it_fcat .
+  CLEAR wa_fcat .
+
+  wa_fcat-col_pos = '4' .
+  wa_fcat-fieldname = 'CUST_CO' .
+  wa_fcat-tabname = 'it_customer' .
+  wa_fcat-seltext_m = 'Customer Contact' .
+  APPEND wa_fcat TO it_fcat .
+  CLEAR wa_fcat .
+
+  wa_fcat-col_pos = '5' .
+  wa_fcat-fieldname = 'CUST_AGE' .
+  wa_fcat-tabname = 'it_customer' .
+  wa_fcat-seltext_m = 'Customer Age' .
+  APPEND wa_fcat TO it_fcat .
+  CLEAR wa_fcat .
+
+ENDFORM.
+
+
+FORM display_customer_data_grid.
+
+  IF p_grid = 'X'.
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+      EXPORTING
+        i_callback_program      = sy-repid
+        i_callback_user_command = 'USER_COMMAND'
+        i_callback_top_of_page  = 'TOP_OF_PAGE'
+        i_grid_title            = i_title_ekko
+        is_layout               = wa_layout
+        it_fieldcat             = it_fcat                          "PASS FIELD CATALOG TO ALV
+      TABLES
+        t_outtab                = it_customer.
+  ENDIF.
+
+ENDFORM.
+
+
+FORM display_customer_data_list.
+
+  IF p_list = 'X'.
+    CALL FUNCTION 'REUSE_ALV_LIST_DISPLAY'
+      EXPORTING
+        i_callback_program = sy-repid
+        is_layout          = wa_layout
+        it_fieldcat        = it_fcat                          "PASS FIELD CATALOG TO ALV
+      TABLES
+        t_outtab           = it_customer.
+  ENDIF.
+
+ENDFORM.
+
+FORM top_of_page.
+
+  CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+    EXPORTING
+      it_list_commentary = it_listheader.
+
+ENDFORM.                    "TOP_OF_PAGE
+
+FORM user_command USING r_ucomm LIKE sy-ucomm
+                        rs_selfield TYPE slis_selfield.
+  CASE r_ucomm.
+    WHEN '&IC1'.
+      READ TABLE it_purchase INTO wa_purchase INDEX rs_selfield-tabindex.
+      PERFORM build_fieldcatlog_purchase.
+      PERFORM event_call_purchase.
+      PERFORM populate_event_purchase.
+      PERFORM data_retrieval_purchase.
+      PERFORM build_listheader_purchase USING it_listheader.
+      PERFORM display_alv_purchase.
+  ENDCASE.
+
+ENDFORM.                    "user_command
+
+FORM build_fieldcatlog_purchase.
+
+  wa_fcat-col_pos = '1' .
+  wa_fcat-fieldname = 'custid' .
+  wa_fcat-tabname = 'it_PURCHASE' .
+  wa_fcat-seltext_m = 'Customer ID' .
+  wa_fcat-key = 'X' .
+  APPEND wa_fcat TO it_fcat .
+  CLEAR wa_fcat .
+
+  wa_fcat-col_pos = '2' .
+  wa_fcat-fieldname = 'MAT_ID' .
+  wa_fcat-tabname = 'it_PURCHASE' .
+  wa_fcat-seltext_m = 'Material ID' .
+  APPEND wa_fcat TO it_fcat .
+  CLEAR wa_fcat .
+
+  wa_fcat-col_pos = '3' .
+  wa_fcat-fieldname = 'AMOUNT_PAID' .
+  wa_fcat-tabname = 'it_PURCHASE' .
+  wa_fcat-seltext_m = 'Amount Paid' .
+  APPEND wa_fcat TO it_fcat .
+  CLEAR wa_fcat .
+
+ENDFORM.
+
+FORM event_call_purchase.
+
+  CALL FUNCTION 'REUSE_ALV_EVENTS_GET'
+    EXPORTING
+      i_list_type = 0
+    IMPORTING
+      et_events   = v_events.
+
+ENDFORM.                    "event_call
+
+FORM populate_event_purchase.
+
+  READ TABLE v_events INTO wa_event WITH KEY name = 'TOP_OF_PAGE'.
+  IF sy-subrc EQ 0.
+    wa_event-form = 'TOP_OF_PAGE'.
+    MODIFY v_events FROM wa_event TRANSPORTING form
+        WHERE name = wa_event-form.
+  ENDIF.
+
+ENDFORM.
+
+FORM f_top_of_page.
+  CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+    EXPORTING
+      it_list_commentary = it_listheader.
+ENDFORM.                    "TOP_OF_PAGE
+
+FORM data_retrieval_purchase.
+*retreiving values from the database
+  SELECT *  FROM zpurchase INTO TABLE it_purchase.
+ENDFORM.
+
+FORM build_listheader_purchase USING i_listheader TYPE slis_t_listheader.
+  DATA: hline1 TYPE slis_listheader.
+  hline1-typ = 'H'.
+  hline1-info = 'CHECKING PGM'.
+ENDFORM.
+
+FORM display_alv_purchase.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program     = v_repid
+      i_callback_top_of_page = 'TOP_OF_PAGE'
+      i_grid_title           = i_title_ekpo
+      it_fieldcat            = it_fcat[]
+      i_save                 = 'A'
+      it_events              = v_events
+    TABLES
+      t_outtab               = it_purchase
+    EXCEPTIONS
+      program_error          = 1
+      OTHERS                 = 2.
+ENDFORM.                    "DISPLAY_ALV_EKPO
