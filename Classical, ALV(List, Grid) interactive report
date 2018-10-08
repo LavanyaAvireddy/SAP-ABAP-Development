@@ -1,0 +1,810 @@
+*&---------------------------------------------------------------------*
+*& Report ZCLASSICAL_ALV_LIST_GRID_INTER
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT zclassical_alv_list_grid_inter.
+
+TABLES: zcust,                                                         "tables used in the Report
+        zven,
+        zmaterial,
+        zbusiness,
+        zpurchase.
+
+
+TYPES: BEGIN OF ty_customer,                                           "user defined Table for customer
+         custid    TYPE zcust-custid,
+         cust_name TYPE zcust-cust_name,
+         cust_add  TYPE zcust-cust_add,
+         cust_co   TYPE zcust-cust_co,
+         cust_age  TYPE zcust-cust_age,
+       END OF ty_customer.
+
+TYPES: BEGIN OF ty_material,                                           "user defined Table for Material
+         matid      TYPE zmaterial-matid,
+         mat_name   TYPE zmaterial-mat_name,
+         mat_des    TYPE zmaterial-mat_des,
+         mat_price  TYPE zmaterial-mat_price,
+         mat_weight TYPE zmaterial-mat_weight,
+       END OF ty_material.
+
+TYPES:BEGIN OF ty_vendor,                                              "user definedl Table for vendor
+        vendor_id   TYPE zven-vendor_id,
+        vendor_name TYPE zven-vendor_name,
+        vendor_add  TYPE zven-vendor_add,
+        vendor_co   TYPE zven-vendor_co,
+      END OF ty_vendor.
+
+TYPES: BEGIN OF ty_cust,
+         custid TYPE zcust-custid,
+       END OF ty_cust.
+
+TYPES: BEGIN OF ty_mat,
+         matid TYPE zmaterial-matid,
+       END OF ty_mat.
+
+TYPES: BEGIN OF ty_ven,
+         vendor_id TYPE zven-vendor_id,
+       END OF ty_ven.
+
+DATA: it_cust TYPE STANDARD TABLE OF ty_cust,
+      wa_cust LIKE LINE OF it_cust.
+
+DATA: it_mat TYPE STANDARD TABLE OF ty_mat,
+      wa_mat LIKE LINE OF it_mat.
+
+DATA: it_ven TYPE STANDARD TABLE OF ty_ven,
+      wa_ven LIKE LINE OF it_ven.
+
+DATA: it_customer TYPE TABLE OF zcust,                                 "Internal table and workarea for Customer
+      wa_customer LIKE LINE OF it_customer.
+
+DATA: it_material TYPE TABLE OF zmaterial,                             "Internal table and workarea for Material
+      wa_material LIKE LINE OF it_material.
+
+DATA: it_vendor TYPE TABLE OF zven,                                    "Internal table and workarea for Vendor.
+      wa_vendor LIKE LINE OF it_vendor.
+
+DATA: it_purchase TYPE STANDARD TABLE OF zpurchase,
+      wa_purchase LIKE LINE OF it_purchase.
+
+DATA: it_purchase1 TYPE STANDARD TABLE OF zpurchase.
+
+DATA:it_business TYPE STANDARD TABLE OF zbusiness,
+     wa_business LIKE LINE OF it_business.
+
+DATA : it_fcat TYPE slis_t_fieldcat_alv .                            "field catalog table
+DATA : wa_fcat LIKE LINE OF it_fcat .                                "field catalog work area
+
+DATA : wa_layout TYPE slis_layout_alv.
+
+DATA: v_repid LIKE sy-repid .
+
+DATA: it_listheader TYPE slis_t_listheader.
+
+DATA: v_events TYPE slis_t_event,
+      wa_event TYPE slis_alv_event.
+
+DATA:  i_title_ekko TYPE lvc_title VALUE 'FIRST LIST DISPLAYED'.
+DATA:  i_title_ekpo TYPE lvc_title VALUE 'SECONDRY LIST DISPLAYED'.
+
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+
+PARAMETERS: c_cust AS CHECKBOX USER-COMMAND uc1.                     "Checkbox to display Customer master
+PARAMETERS: c_mat AS CHECKBOX USER-COMMAND uc1.                      "Checkbox to display Material master
+PARAMETERS: c_ven AS CHECKBOX USER-COMMAND uc1.                      "Checkbox to display Vendor master
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+SELECTION-SCREEN BEGIN OF BLOCK b3 WITH FRAME TITLE TEXT-002.
+
+PARAMETERS: p_custid TYPE zcust-custid MODIF ID in1.
+
+SELECTION-SCREEN END OF BLOCK b3.
+
+SELECTION-SCREEN BEGIN OF BLOCK b4 WITH FRAME TITLE TEXT-003.
+
+PARAMETERS: p_matid TYPE zmaterial-matid MODIF ID in2.
+
+SELECTION-SCREEN END OF BLOCK b4.
+
+SELECTION-SCREEN BEGIN OF BLOCK b5 WITH FRAME TITLE TEXT-004.
+
+PARAMETERS: p_venid TYPE zven-vendor_id MODIF ID in3.
+
+SELECTION-SCREEN END OF BLOCK b5.
+
+SELECTION-SCREEN BEGIN OF BLOCK b6 WITH FRAME TITLE TEXT-005.
+
+PARAMETERS: p_class RADIOBUTTON GROUP rb1.
+PARAMETERS: p_list RADIOBUTTON GROUP rb1.
+PARAMETERS: p_grid RADIOBUTTON GROUP rb1.
+
+SELECTION-SCREEN END OF BLOCK b6.
+
+INITIALIZATION.
+  PERFORM event_call.
+  PERFORM populate_event.
+
+AT SELECTION-SCREEN OUTPUT.
+  PERFORM choose_info.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_matid.
+  PERFORM field_valuehelp_for_materialid.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_custid.
+  PERFORM field_valuehelp_for_customerid.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_venid.
+  PERFORM field_valuehelp_for_vendorid.
+
+START-OF-SELECTION.
+  PERFORM get_customer_data.
+  PERFORM get_material_data.
+  PERFORM get_vendor_data.
+  PERFORM field_catalouge_customer.
+  PERFORM field_catalouge_material.
+  PERFORM field_catalouge_vendor.
+
+END-OF-SELECTION.
+  PERFORM display_customer_data.
+  PERFORM display_material_data.
+  PERFORM display_vendor_data.
+
+  PERFORM display_customer_data_grid.
+  PERFORM display_customer_data_list.
+
+  PERFORM display_material_data_grid.
+  PERFORM display_material_data_list.
+
+  PERFORM display_Vendor_data_grid.
+  PERFORM display_Vendor_data_list.
+
+AT LINE-SELECTION.
+  PERFORM get_purchase_details.
+  PERFORM display_purchase_data.
+
+  PERFORM get_cust_data.
+  PERFORM display_cust_data.
+
+  PERFORM get_supplier_data.
+  PERFORM display_supplier_data.
+
+FORM event_call.
+
+  CALL FUNCTION 'REUSE_ALV_EVENTS_GET'
+    EXPORTING
+      i_list_type = 0
+    IMPORTING
+      et_events   = v_events.
+
+ENDFORM.                    "EVENT_CALL
+
+FORM populate_event.
+
+  READ TABLE v_events INTO wa_event WITH KEY name = 'TOP_OF_PAGE'.
+  IF sy-subrc EQ 0.
+    wa_event-form = 'TOP_OF_PAGE'.
+    MODIFY v_events FROM wa_event TRANSPORTING form
+        WHERE name = wa_event-form.
+  ENDIF.
+
+  READ TABLE v_events INTO wa_event WITH KEY name = 'USER_COMMAND'.
+  IF sy-subrc EQ 0.
+    wa_event-form = 'USER_COMMAND'.
+    MODIFY v_events FROM wa_event TRANSPORTING form
+        WHERE name = wa_event-name.
+  ENDIF.
+
+ENDFORM.                    "POPULATE_EVENT
+
+
+FORM choose_info.
+
+  LOOP AT SCREEN.
+    IF c_cust = 'X'.
+      IF screen-group1 = 'IN1'.
+        screen-active = 1.
+        MODIFY SCREEN.
+      ENDIF.
+    ELSE.
+      IF screen-group1 = 'IN1' .
+        screen-active = 0.
+        MODIFY SCREEN.
+      ENDIF.
+    ENDIF.
+  ENDLOOP.
+
+  LOOP AT SCREEN.
+    IF c_mat = 'X'.
+      IF screen-group1 = 'IN2'.
+        screen-active = 1.
+        MODIFY SCREEN.
+      ENDIF.
+    ELSE.
+      IF screen-group1 = 'IN2' .
+        screen-active = 0.
+        MODIFY SCREEN.
+      ENDIF.
+    ENDIF.
+  ENDLOOP.
+
+  LOOP AT SCREEN.
+    IF c_ven = 'X'.
+      IF screen-group1 = 'IN3'.
+        screen-active = 1.
+        MODIFY SCREEN.
+      ENDIF.
+    ELSE.
+      IF screen-group1 = 'IN3' .
+        screen-active = 0.
+        MODIFY SCREEN.
+      ENDIF.
+    ENDIF.
+  ENDLOOP.
+
+ENDFORM.
+
+FORM field_valuehelp_for_materialid.
+
+  IF c_mat = 'X'.
+    SELECT matid
+      FROM zmaterial
+      INTO TABLE it_mat.
+
+    CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+      EXPORTING
+        retfield    = 'MATID'
+        dynpprog    = sy-repid
+        dynpnr      = sy-dynnr
+        dynprofield = 'MATID'
+        value_org   = 'S'
+      TABLES
+        value_tab   = it_mat.
+  ENDIF.
+
+ENDFORM.
+
+FORM field_valuehelp_for_customerid.
+
+  IF c_cust = 'X'.
+    SELECT custid
+      FROM zcust
+      INTO TABLE it_cust.
+
+    CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+      EXPORTING
+        retfield    = 'MATID'
+        dynpprog    = sy-repid
+        dynpnr      = sy-dynnr
+        dynprofield = 'MATID'
+        value_org   = 'S'
+      TABLES
+        value_tab   = it_cust.
+  ENDIF.
+
+ENDFORM.
+
+FORM field_valuehelp_for_vendorid.
+
+  IF c_ven = 'X'.
+    SELECT vendor_id
+     FROM zven
+     INTO TABLE it_ven.
+
+    CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+      EXPORTING
+        retfield    = 'MATID'
+        dynpprog    = sy-repid
+        dynpnr      = sy-dynnr
+        dynprofield = 'MATID'
+        value_org   = 'S'
+      TABLES
+        value_tab   = it_ven.
+  ENDIF.
+
+ENDFORM.
+
+FORM get_customer_data.
+
+  IF c_cust = 'X' AND p_class = 'X' OR p_list = 'X' OR p_grid = 'X'.
+    IF p_custid IS NOT INITIAL.
+      SELECT * FROM zcust INTO TABLE it_customer WHERE custid = p_custid.
+      IF it_customer IS INITIAL.
+        MESSAGE: 'Please enter valid Customer Id' TYPE 'I'.
+      ENDIF.
+    ELSE.
+      MESSAGE: 'Please enter Customer id' TYPE 'I'.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.
+
+FORM display_customer_data.
+
+  IF c_cust = 'X' AND p_class = 'X' AND it_customer IS NOT INITIAL.
+    WRITE: 1  'Customer ID' COLOR 5,
+           20 'Customer Name' COLOR 5,
+           40 'Customer Address' COLOR 5,
+           62 'Customer Contact' COLOR 5,
+           85 'Customer Age' COLOR 5.
+
+    LOOP AT it_customer INTO wa_customer.
+      WRITE: /1  wa_customer-custid,
+              22 wa_customer-cust_name,
+              41 wa_customer-cust_add,
+              65 wa_customer-cust_co,
+              86 wa_customer-cust_age.
+      HIDE: wa_customer.
+    ENDLOOP.
+  ENDIF.
+
+ENDFORM.
+
+FORM get_material_data.
+
+  IF c_mat = 'X' AND p_class = 'X' OR p_list = 'X' OR p_grid = 'X'.
+    IF p_matid IS NOT INITIAL.
+      SELECT * FROM zmaterial INTO TABLE it_material WHERE matid = p_matid.
+      IF it_material IS INITIAL.
+        MESSAGE: 'Please enter valid Material Id' TYPE 'I'.
+      ENDIF.
+    ELSE.
+      MESSAGE: 'Please enter Material id' TYPE 'I'.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.
+
+FORM display_material_data.
+
+  IF c_mat = 'X' AND p_class = 'X' AND it_material IS NOT INITIAL.
+    WRITE: 1  'Material ID' COLOR 5,
+           20 'Material Name' COLOR 5,
+           40 'Material Description' COLOR 5,
+           68 'Material price' COLOR 5,
+           87 'Material Weight' COLOR 5.
+
+    LOOP AT it_material INTO wa_material.
+      WRITE: /1  wa_material-matid,
+              24 wa_material-mat_name,
+              40 wa_material-mat_des,
+              70 wa_material-mat_price,
+              89 wa_material-mat_weight.
+      HIDE: wa_material.
+    ENDLOOP.
+  ENDIF.
+
+ENDFORM.
+
+FORM get_vendor_data.
+
+  IF c_ven = 'X' AND p_class = 'X' OR p_list = 'X' OR p_grid = 'X'.
+    IF p_venid IS NOT INITIAL.
+      SELECT * FROM zven INTO TABLE it_vendor WHERE vendor_id = p_venid.
+      IF it_vendor IS INITIAL.
+        MESSAGE: 'Please enter valid vendor Id' TYPE 'I'.
+      ENDIF.
+    ELSE.
+      MESSAGE: 'Please enter Vendor id' TYPE 'I'.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.
+
+
+FORM display_vendor_data.
+
+  IF c_ven = 'X' AND p_class = 'X' AND it_vendor IS NOT INITIAL.
+    WRITE: 1  'Vendor ID' COLOR 5,
+           20 'Vendor Name' COLOR 5,
+           40 'Vendor Address' COLOR 5,
+           68 'Vendor Contact' COLOR 5.
+
+    LOOP AT it_vendor INTO wa_vendor.
+      WRITE: /1  wa_vendor-vendor_id,
+              21 wa_vendor-vendor_name,
+              38 wa_vendor-vendor_add,
+              70 wa_vendor-vendor_co.
+      HIDE:wa_vendor.
+    ENDLOOP.
+  ENDIF.
+
+ENDFORM.
+
+FORM get_purchase_details.
+
+  SELECT * FROM zpurchase
+    INTO TABLE it_purchase
+    WHERE custid = wa_customer-custid.
+
+ENDFORM.
+
+
+FORM display_purchase_data.
+
+  IF c_cust = 'X'.
+    IF it_purchase IS NOT INITIAL.
+      WRITE: 1 'Customer id' COLOR 6,
+            20 'Material Id' COLOR 6,
+            38 'Amount Paid' COLOR 6.
+
+      LOOP AT it_purchase INTO wa_purchase.
+        WRITE: /1 wa_purchase-custid,
+               20 wa_purchase-matid,
+               38 wa_purchase-amount_paid.
+      ENDLOOP.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.
+
+FORM get_cust_data.
+
+  SELECT * FROM zpurchase
+  INTO TABLE it_purchase1
+  WHERE matid = wa_material-matid.
+
+
+
+ENDFORM.
+
+FORM display_cust_data.
+
+  IF it_purchase1 IS NOT INITIAL.
+    WRITE: 1 'Customer id' COLOR 6,
+          20 'Material Id' COLOR 6,
+          38 'Amount Paid' COLOR 6.
+
+    LOOP AT it_purchase1 INTO wa_purchase.
+      WRITE: /1 wa_purchase-custid,
+             20 wa_purchase-matid,
+             38 wa_purchase-amount_paid.
+    ENDLOOP.
+  ENDIF.
+
+ENDFORM.
+
+FORM get_supplier_data.
+
+  SELECT * FROM zbusiness
+    INTO TABLE it_business
+    WHERE vendor_id = wa_vendor-vendor_id.
+
+ENDFORM.
+
+
+FORM display_supplier_data.
+
+  IF it_business IS NOT INITIAL.
+    WRITE: 1 'vendor id' COLOR 6,
+          20 'Material Id' COLOR 6.
+
+    LOOP AT it_business INTO wa_business.
+      WRITE: /1 wa_business-vendor_id,
+             20 wa_business-matid.
+    ENDLOOP.
+  ENDIF.
+
+ENDFORM.
+
+FORM field_catalouge_customer.
+
+  IF c_cust = 'X'.
+    wa_fcat-col_pos = '1' .
+    wa_fcat-fieldname = 'custid' .
+    wa_fcat-tabname = 'it_customer' .
+    wa_fcat-seltext_m = 'Customer ID' .
+    wa_fcat-key = 'X' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+
+    wa_fcat-col_pos = '2' .
+    wa_fcat-fieldname = 'CUST_NAME' .
+    wa_fcat-tabname = 'it_customer' .
+    wa_fcat-seltext_m = 'Customer Name' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+
+    wa_fcat-col_pos = '3' .
+    wa_fcat-fieldname = 'CUST_ADD' .
+    wa_fcat-tabname = 'it_customer' .
+    wa_fcat-seltext_m = 'Customer Address' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+
+    wa_fcat-col_pos = '4' .
+    wa_fcat-fieldname = 'CUST_CO' .
+    wa_fcat-tabname = 'it_customer' .
+    wa_fcat-seltext_m = 'Customer Contact' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+
+    wa_fcat-col_pos = '5' .
+    wa_fcat-fieldname = 'CUST_AGE' .
+    wa_fcat-tabname = 'it_customer' .
+    wa_fcat-seltext_m = 'Customer Age' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+  ENDIF.
+
+ENDFORM.
+
+FORM field_catalouge_material.
+
+  IF c_mat = 'X'.
+    wa_fcat-col_pos = '1' .
+    wa_fcat-fieldname = 'MATID' .
+    wa_fcat-tabname = 'it_Material' .
+    wa_fcat-seltext_m = 'Material ID' .
+    wa_fcat-key = 'X' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+
+    wa_fcat-col_pos = '2' .
+    wa_fcat-fieldname = 'MAT_NAME' .
+    wa_fcat-tabname = 'it_Material' .
+    wa_fcat-seltext_m = 'Material Name' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+
+    wa_fcat-col_pos = '3' .
+    wa_fcat-fieldname = 'MAT_Des' .
+    wa_fcat-tabname = 'it_Material' .
+    wa_fcat-seltext_m = 'Material Description' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+
+    wa_fcat-col_pos = '4' .
+    wa_fcat-fieldname = 'MAT_price' .
+    wa_fcat-tabname = 'it_Material' .
+    wa_fcat-seltext_m = 'Material Price' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+
+    wa_fcat-col_pos = '4' .
+    wa_fcat-fieldname = 'MAT_Weight' .
+    wa_fcat-tabname = 'it_Material' .
+    wa_fcat-seltext_m = 'Material weight' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+  ENDIF.
+
+ENDFORM.
+
+FORM field_catalouge_vendor.
+
+if C_ven = 'X'.
+    wa_fcat-col_pos = '1' .
+    wa_fcat-fieldname = 'VENDOR_ID' .
+    wa_fcat-tabname = 'it_vendor' .
+    wa_fcat-seltext_m = 'Vendor ID' .
+    wa_fcat-key = 'X' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+
+    wa_fcat-col_pos = '2' .
+    wa_fcat-fieldname = 'VENDOR_NAME' .
+    wa_fcat-tabname = 'it_vendor' .
+    wa_fcat-seltext_m = 'Vendor Name' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+
+    wa_fcat-col_pos = '3' .
+    wa_fcat-fieldname = 'VENDOR_ADD' .
+    wa_fcat-tabname = 'it_vendor' .
+    wa_fcat-seltext_m = 'Vendor Address' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+
+    wa_fcat-col_pos = '4' .
+    wa_fcat-fieldname = 'VENDOR_CO' .
+    wa_fcat-tabname = 'it_vendor' .
+    wa_fcat-seltext_m = 'Vendor Contact' .
+    APPEND wa_fcat TO it_fcat .
+    CLEAR wa_fcat .
+endif.
+
+ENDFORM.
+
+FORM display_customer_data_grid.
+
+  IF p_grid = 'X'AND c_cust = 'X'.
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+      EXPORTING
+        i_callback_program      = sy-repid
+        i_callback_user_command = 'USER_COMMAND'
+        i_callback_top_of_page  = 'TOP_OF_PAGE'
+        i_grid_title            = i_title_ekko
+        is_layout               = wa_layout
+        it_fieldcat             = it_fcat                          "PASS FIELD CATALOG TO ALV
+      TABLES
+        t_outtab                = it_customer.
+  ENDIF.
+
+ENDFORM.
+
+FORM display_material_data_grid.
+
+  IF p_grid = 'X'AND c_mat = 'X'.
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+      EXPORTING
+        i_callback_program      = sy-repid
+        i_callback_user_command = 'USER_COMMAND'
+        i_callback_top_of_page  = 'TOP_OF_PAGE'
+        i_grid_title            = i_title_ekko
+        is_layout               = wa_layout
+        it_fieldcat             = it_fcat                          "PASS FIELD CATALOG TO ALV
+      TABLES
+        t_outtab                = it_material.
+  ENDIF.
+
+ENDFORM.
+
+FORM display_Vendor_data_grid.
+
+  IF p_grid = 'X'AND c_ven = 'X'.
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+      EXPORTING
+        i_callback_program      = sy-repid
+        i_callback_user_command = 'USER_COMMAND'
+        i_callback_top_of_page  = 'TOP_OF_PAGE'
+        i_grid_title            = i_title_ekko
+        is_layout               = wa_layout
+        it_fieldcat             = it_fcat                          "PASS FIELD CATALOG TO ALV
+      TABLES
+        t_outtab                = it_Vendor.
+  ENDIF.
+
+ENDFORM.
+
+
+FORM display_customer_data_list.
+
+  IF p_list = 'X' AND c_cust = 'X'.
+    CALL FUNCTION 'REUSE_ALV_LIST_DISPLAY'
+      EXPORTING
+        i_callback_program      = sy-repid
+        i_callback_user_command = 'USER_COMMAND'
+        is_layout               = wa_layout
+        it_fieldcat             = it_fcat                          "PASS FIELD CATALOG TO ALV
+      TABLES
+        t_outtab                = it_customer.
+  ENDIF.
+
+ENDFORM.
+
+FORM display_material_data_list.
+
+  IF p_list = 'X' AND c_mat = 'X'.
+    CALL FUNCTION 'REUSE_ALV_LIST_DISPLAY'
+      EXPORTING
+        i_callback_program      = sy-repid
+        i_callback_user_command = 'USER_COMMAND'
+        is_layout               = wa_layout
+        it_fieldcat             = it_fcat                          "PASS FIELD CATALOG TO ALV
+      TABLES
+        t_outtab                = it_material.
+  ENDIF.
+
+ENDFORM.
+
+FORM display_vendor_data_list.
+
+  IF p_list = 'X' AND c_ven = 'X'.
+    CALL FUNCTION 'REUSE_ALV_LIST_DISPLAY'
+      EXPORTING
+        i_callback_program      = sy-repid
+        i_callback_user_command = 'USER_COMMAND'
+        is_layout               = wa_layout
+        it_fieldcat             = it_fcat                          "PASS FIELD CATALOG TO ALV
+      TABLES
+        t_outtab                = it_vendor.
+  ENDIF.
+
+ENDFORM.
+
+FORM top_of_page.
+
+  CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+    EXPORTING
+      it_list_commentary = it_listheader.
+
+ENDFORM.
+
+FORM user_command USING r_ucomm LIKE sy-ucomm
+                        rs_selfield TYPE slis_selfield.
+  CASE r_ucomm.
+    WHEN '&IC1'.
+      READ TABLE it_purchase INTO wa_purchase INDEX rs_selfield-tabindex.
+      PERFORM build_fieldcatlog_purchase.
+      PERFORM event_call_purchase.
+      PERFORM populate_event_purchase.
+      PERFORM data_retrieval_purchase.
+      PERFORM build_listheader_purchase USING it_listheader.
+      PERFORM display_alv_purchase.
+  ENDCASE.
+
+ENDFORM.                    "user_command
+
+FORM build_fieldcatlog_purchase.
+
+  wa_fcat-col_pos = '1' .
+  wa_fcat-fieldname = 'custid' .
+  wa_fcat-tabname = 'it_PURCHASE' .
+  wa_fcat-seltext_m = 'Customer ID' .
+  wa_fcat-key = 'X' .
+  APPEND wa_fcat TO it_fcat .
+  CLEAR wa_fcat .
+
+  wa_fcat-col_pos = '2' .
+  wa_fcat-fieldname = 'MAT_ID' .
+  wa_fcat-tabname = 'it_PURCHASE' .
+  wa_fcat-seltext_m = 'Material ID' .
+  APPEND wa_fcat TO it_fcat .
+  CLEAR wa_fcat .
+
+  wa_fcat-col_pos = '3' .
+  wa_fcat-fieldname = 'AMOUNT_PAID' .
+  wa_fcat-tabname = 'it_PURCHASE' .
+  wa_fcat-seltext_m = 'Amount Paid' .
+  APPEND wa_fcat TO it_fcat .
+  CLEAR wa_fcat .
+
+ENDFORM.
+
+FORM event_call_purchase.
+
+  CALL FUNCTION 'REUSE_ALV_EVENTS_GET'
+    EXPORTING
+      i_list_type = 0
+    IMPORTING
+      et_events   = v_events.
+
+ENDFORM.                    "event_call
+
+FORM populate_event_purchase.
+
+  READ TABLE v_events INTO wa_event WITH KEY name = 'TOP_OF_PAGE'.
+  IF sy-subrc EQ 0.
+    wa_event-form = 'TOP_OF_PAGE'.
+    MODIFY v_events FROM wa_event TRANSPORTING form
+        WHERE name = wa_event-form.
+  ENDIF.
+
+ENDFORM.
+
+FORM f_top_of_page.
+  CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+    EXPORTING
+      it_list_commentary = it_listheader.
+ENDFORM.                    "TOP_OF_PAGE
+
+FORM data_retrieval_purchase.
+*retreiving values from the database
+  SELECT *  FROM zpurchase INTO TABLE it_purchase.
+ENDFORM.
+
+FORM build_listheader_purchase USING i_listheader TYPE slis_t_listheader.
+  DATA: hline1 TYPE slis_listheader.
+  hline1-typ = 'H'.
+  hline1-info = 'CHECKING PGM'.
+ENDFORM.
+
+FORM display_alv_purchase.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program     = v_repid
+      i_callback_top_of_page = 'TOP_OF_PAGE'
+      i_grid_title           = i_title_ekpo
+      it_fieldcat            = it_fcat[]
+      i_save                 = 'A'
+      it_events              = v_events
+    TABLES
+      t_outtab               = it_purchase
+    EXCEPTIONS
+      program_error          = 1
+      OTHERS                 = 2.
+ENDFORM.                    "DISPLAY_ALV_EKPO
