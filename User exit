@@ -1,0 +1,56 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZXVVAU05
+*&---------------------------------------------------------------------*
+DATA: gt_exit  TYPE zexit,
+      gs_vbeln TYPE zexit-vbeln,
+      gs_inr   TYPE vbak-netwr,
+      gs_loc   TYPE vbak-waerk VALUE 'INR'.
+
+CALL FUNCTION 'CONVERT_TO_LOCAL_CURRENCY'
+  EXPORTING
+    client            = sy-mandt
+    date              = sy-datum
+    foreign_amount    = xvbak-netwr
+    foreign_currency  = xvbak-waerk
+    local_currency    = gs_loc
+    rate              = 0
+    type_of_rate      = 'M'
+    read_tcurr        = 'X'
+  IMPORTING
+    exchange_rate     =
+    foreign_factor    =
+    local_amount      = gs_inr
+    local_factor      =
+    exchange_ratex    =
+    fixed_rate        =
+    derived_rate_type =
+  EXCEPTIONS
+    no_rate_found     = 1
+    overflow          = 2
+    no_factors_found  = 3
+    no_spread_found   = 4
+    derived_2_times   = 5
+    OTHERS            = 6.
+IF sy-subrc <> 0.
+  MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+          WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+ENDIF.
+
+IF gs_inr > '1000'.
+  gt_exit-zstatus = 'High Value'.
+ELSEIF
+gs_inr > '100' AND
+gs_inr < '1000'.
+  gt_exit-zstatus = 'Normal Value'.
+ELSEIF
+gs_inr < '100'.
+  gt_exit-zstatus = 'Low Value'.
+ENDIF.
+
+gt_exit-vbeln = xvbak-vbeln.
+gt_exit-vkorg = xvbak-vkorg.
+gt_exit-vtweg = xvbak-vtweg.
+gt_exit-spart = xvbak-spart.
+
+INSERT INTO zexit VALUES gt_exit.
+CLEAR gt_exit.
