@@ -1,0 +1,56 @@
+*&---------------------------------------------------------------------*
+*& Report Z_EXPLICIT_ENHANCEMENT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z_explicit_enhancement.
+
+
+TABLES: vbak, vbap.
+DATA: it_vbak TYPE STANDARD TABLE OF vbak INITIAL SIZE 0,
+      wa_vbak TYPE vbak,
+      it_vbap TYPE STANDARD TABLE OF vbap INITIAL SIZE 0,
+      wa_vbap TYPE vbap.
+
+
+INITIALIZATION.
+  REFRESH: it_vbak,
+           it_vbap.
+  CLEAR: wa_vbak,
+         wa_vbap.
+
+START-OF-SELECTION.
+ENHANCEMENT-SECTION YLAV_ENHANCE_SECTION SPOTS YLAV_IMPLEMENT_SPOT .
+
+END-ENHANCEMENT-SECTION.
+*$*$-Start: YLAV_ENHANCE_SECTION----------------------------------------------------------------$*$*
+ENHANCEMENT 1  YLAV_IMPLEMENT_SPOT1.    "active version
+Select * from vbap into table it_vbap[] UP TO 10 ROWS.
+  write: /02 'Sales Document',
+          20 'Sales Item',
+          40 'Material Number',
+          65 'Material Entered'.
+  Uline.
+  if it_vbap[] is not initial.
+    loop at it_vbap into wa_vbap.
+      write: /02 wa_vbap-vbeln,
+              20 wa_vbap-posnr,
+              40 wa_vbap-matnr,
+              65 wa_vbap-matwa.
+    endloop.
+  endif.
+ENDENHANCEMENT.
+*$*$-End:   YLAV_ENHANCE_SECTION----------------------------------------------------------------$*$*
+  SELECT *
+    FROM vbak
+    INTO TABLE it_vbak[]
+    UP TO 10 ROWS.
+
+if it_vbak[] is not INITIAL.
+loop at it_vbak[] INTO wa_vbak.
+  write: / wa_vbak-vbeln,
+         wa_vbak-erdat,
+         wa_vbak-erzet,
+         wa_vbak-ernam.
+endloop.
+endif.
